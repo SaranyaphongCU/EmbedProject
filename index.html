@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MagicShelf</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="sign">
+    <div class="sign-in">
+      <div class="brand">
+        <svg class="logo" viewBox="0 0 40 40" aria-hidden="true">
+          <rect x="3" y="6" width="7" height="28" rx="1.5" fill="#7b5232"/>
+          <rect x="12" y="10" width="7" height="24" rx="1.5" fill="#b88a3b"/>
+          <rect x="21" y="4" width="7" height="30" rx="1.5" fill="#a9784a"/>
+          <rect x="30" y="12" width="7" height="22" rx="1.5" fill="#4f6b54" transform="rotate(8 33 23)"/>
+          <rect x="1" y="34" width="38" height="3.5" rx="1" fill="#5c3b22"/>
+        </svg>
+        <div>
+          <h1>MagicShelf</h1>
+          <p>ห้องสมุดส่วนตัวอัจฉริยะ</p>
+        </div>
+      </div>
+      <nav aria-label="เมนูหลัก">
+        <a href="#home" id="nav-home">ชั้นหนังสือ</a>
+        <a href="#dashboard" id="nav-dashboard">Dashboard</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <!-- ================= หน้าหลัก ================= -->
+    <section id="page-home" class="page">
+      <div class="controls">
+        <div class="ctl">
+          <span class="ctl-label" id="sort-label">เรียงตาม</span>
+          <div class="seg" role="group" aria-labelledby="sort-label">
+            <button data-sort="title">ชื่อหนังสือ</button>
+            <button data-sort="slot">ซ้าย → ขวา</button>
+            <button data-sort="category">หมวดหมู่</button>
+          </div>
+        </div>
+        <div class="ctl-right">
+          <button class="btn scan" id="scan-btn">
+            <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" stroke-width="2.4"/><path d="M15.5 15.5L21 21" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>
+            <span>แสกน</span>
+          </button>
+          <button class="btn ghost" id="settings-btn" aria-expanded="false" aria-controls="settings">ตั้งค่า</button>
+        </div>
+      </div>
+
+      <div id="settings" class="settings" hidden>
+        <fieldset>
+          <legend>โหมดการทำงาน</legend>
+          <label><input type="radio" name="mode" value="test"> โหมดทดสอบ <span class="hint">ค้างไว้ 2 วินาทีแล้วถือว่าเสร็จ</span></label>
+          <label><input type="radio" name="mode" value="real"> โหมดจริง <span class="hint">รอจนชั้นตอบกลับว่าทำงานเสร็จ</span></label>
+        </fieldset>
+        <fieldset>
+          <legend>ข้อมูลหนังสือ</legend>
+          <div class="io">
+            <button class="btn ghost" id="export-btn" type="button">ส่งออกข้อมูล (.json)</button>
+            <button class="btn ghost" id="import-btn" type="button">นำเข้าข้อมูล (.json)</button>
+            <input id="import-file" type="file" accept="application/json,.json" hidden>
+          </div>
+          <span class="hint">ไฟล์มีรายชื่อหนังสือและสถิติการเลือก นำเข้าแล้วจะแทนที่ข้อมูลปัจจุบัน</span>
+        </fieldset>
+        <label class="api" for="api-base">ที่อยู่ API ของชั้น (โหมดจริง)
+          <input id="api-base" type="url" placeholder="http://192.168.1.50/api" autocomplete="off">
+        </label>
+      </div>
+
+      <div id="status" class="status" role="status" aria-live="polite" hidden></div>
+
+      <div id="shelf" class="shelf"></div>
+    </section>
+
+    <!-- ================= Dashboard ================= -->
+    <section id="page-dashboard" class="page" hidden>
+      <div id="summary" class="summary"></div>
+
+      <div class="dash-tabs">
+        <div class="seg" role="tablist" aria-label="มุมมองสถิติ">
+          <button role="tab" data-tab="books">หนังสือที่เลือกบ่อยที่สุด</button>
+          <button role="tab" data-tab="genres">แนวที่อ่านไปแล้ว</button>
+        </div>
+      </div>
+
+      <div id="tab-books" class="panel"></div>
+      <div id="tab-genres" class="panel" hidden></div>
+
+      <p class="foot" id="demo-note"></p>
+    </section>
+  </main>
+
+  <script src="data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

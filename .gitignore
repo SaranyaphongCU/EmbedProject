@@ -1,0 +1,19 @@
+# Claude Code local files
+.claude/
+
+# OS and editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Dependencies and build output (if you add npm or a bundler later)
+node_modules/
+dist/
+
+# Secrets and local config (for when the ESP32 and backend arrive)
+.env
+.env.*
+secrets.h
+firmware/src/secrets.h
+firmware/.pio/
