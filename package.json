@@ -1,0 +1,25 @@
+{
+  "name": "magicshelf",
+  "version": "1.0.0",
+  "private": true,
+  "description": "MagicShelf: web app for a smart bookshelf (Next.js)",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start"
+  },
+  "engines": {
+    "node": ">=18.18"
+  },
+  "dependencies": {
+    "next": "^16.4.6",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0",
+    "typescript": "^5.6.0"
+  }
+}

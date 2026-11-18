@@ -13,9 +13,10 @@
   --green: #4f6b54;
   --green-soft: #dfe8dc;
   --danger: #a4432f;
-  --font-d: 'Sarabun', system-ui, sans-serif;
-  --font-b: 'Sarabun', system-ui, sans-serif;
-  --font-m: 'Sarabun', system-ui, sans-serif;
+  /* --font-sarabun is set by next/font on <html> (see app/layout.tsx) */
+  --font-d: var(--font-sarabun), 'Sarabun', system-ui, sans-serif;
+  --font-b: var(--font-sarabun), 'Sarabun', system-ui, sans-serif;
+  --font-m: var(--font-sarabun), 'Sarabun', system-ui, sans-serif;
   color-scheme: light;
 }
 

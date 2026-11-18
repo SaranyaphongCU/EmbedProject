@@ -7,9 +7,14 @@ Thumbs.db
 .vscode/
 .idea/
 
-# Dependencies and build output (if you add npm or a bundler later)
+# Dependencies and build output
 node_modules/
 dist/
+.next/
+out/
+next-env.d.ts
+*.tsbuildinfo
+.vercel/
 
 # Secrets and local config (for when the ESP32 and backend arrive)
 .env
