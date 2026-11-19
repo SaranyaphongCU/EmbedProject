@@ -25,7 +25,7 @@ const LS = {
   },
 };
 const K_LOG = "ms-pick-log-v1";
-const K_SET = "ms-settings-v1";
+const K_SET = "ms-settings-v2";
 const K_SORT = "ms-sort-v1";
 const K_BOOKS = "ms-books-v1";
 const K_DEMO = "ms-demo-v1";
@@ -84,8 +84,8 @@ export function ShelfProvider({ children }: { children: ReactNode }) {
 
     const savedSettings = LS.get<Partial<Settings>>(K_SET, {});
     setSettings({
-      mode: savedSettings.mode === "real" ? "real" : "test",
-      apiBase: typeof savedSettings.apiBase === "string" ? savedSettings.apiBase : "",
+      mode: savedSettings.mode ?? DEFAULT_SETTINGS.mode,
+      apiBase: typeof savedSettings.apiBase === "string" && savedSettings.apiBase ? savedSettings.apiBase : DEFAULT_SETTINGS.apiBase,
     });
 
     const savedSort = LS.get<string>(K_SORT, "title");
