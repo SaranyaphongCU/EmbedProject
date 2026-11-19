@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useRef, useState } from "react";
+import { Fragment, useState } from "react";
 import { coverColor, sortBooks } from "@/lib/books";
 import type { Book, SortBy } from "@/lib/types";
 import { useShelf } from "./ShelfProvider";
@@ -29,9 +29,8 @@ function Cover({ book }: { book: Book }) {
 }
 
 export function Shelf() {
-  const { ready, books, settings, sortBy, busy, status, setSortBy, updateSettings, run, exportData, importData } = useShelf();
+  const { ready, books, settings, sortBy, busy, status, setSortBy, updateSettings, run } = useShelf();
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const fileRef = useRef<HTMLInputElement>(null);
 
   const list = ready ? sortBooks(books, sortBy) : [];
   const typeCounts: Record<string, number> = {};
@@ -83,37 +82,6 @@ export function Shelf() {
             โหมดจริง <span className="hint">รอจนชั้นตอบกลับว่าทำงานเสร็จ</span>
           </label>
         </fieldset>
-        <fieldset>
-          <legend>ข้อมูลหนังสือ</legend>
-          <div className="io">
-            <button className="btn ghost" type="button" onClick={exportData}>ส่งออกข้อมูล (.json)</button>
-            <button className="btn ghost" type="button" onClick={() => fileRef.current?.click()}>นำเข้าข้อมูล (.json)</button>
-            <input
-              ref={fileRef}
-              type="file"
-              accept="application/json,.json"
-              hidden
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) importData(f);
-                e.target.value = ""; // allow importing the same file again
-              }}
-            />
-          </div>
-          <span className="hint">ไฟล์มีรายชื่อหนังสือและสถิติการเลือก นำเข้าแล้วจะแทนที่ข้อมูลปัจจุบัน</span>
-        </fieldset>
-        <label className="api" htmlFor="api-base">
-          ที่อยู่ API ของชั้น (โหมดจริง)
-          <input
-            id="api-base"
-            type="url"
-            placeholder="https://your-shelf.example.com/api"
-            autoComplete="off"
-            value={settings.apiBase}
-            onChange={(e) => updateSettings({ apiBase: e.target.value })}
-            onBlur={(e) => updateSettings({ apiBase: e.target.value.trim() })}
-          />
-        </label>
       </div>
 
       {status && (
