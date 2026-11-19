@@ -147,7 +147,7 @@ export function Shelf() {
         })}
       </div>
 
-      {editing && <EditBookDialog key={editKey(editing)} book={editing} onClose={() => setEditing(null)} />}
+      {editing && <EditBookDialog key={`${editKey(editing)}#${editing.copy ?? 1}`} book={editing} onClose={() => setEditing(null)} />}
     </section>
   );
 }

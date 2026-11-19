@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { shelfApi } from "@/lib/api";
-import { applyEdits, checkEdit, editKey, normalizeBooks, normalizeEdits, stripEditMeta } from "@/lib/books";
+import { applyEdits, checkEdit, editKey, expandLegacyEdits, normalizeBooks, normalizeEdits, stripEditMeta } from "@/lib/books";
 import type { Book, BookEdit, Busy, LogEntry, Settings, SortBy, Status } from "@/lib/types";
 
 // ---------- storage (every access guarded: it can throw or come back empty) ----------
@@ -84,7 +84,11 @@ export function ShelfProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const savedBooks = normalizeBooks(LS.get<unknown>(K_BOOKS, null));
     if (savedBooks.length) setBooks(savedBooks);
-    setEdits(normalizeEdits(LS.get<unknown>(K_EDITS, null)));
+    // Edits saved before copies of one title were told apart become one edit per copy.
+    const savedEdits = normalizeEdits(LS.get<unknown>(K_EDITS, null));
+    const migrated = expandLegacyEdits(savedBooks, savedEdits);
+    if (savedEdits.some((e) => e.copy === undefined)) LS.set(K_EDITS, migrated);
+    setEdits(migrated);
 
     const savedSettings = LS.get<Partial<Settings>>(K_SET, {});
     setSettings({
@@ -232,13 +236,14 @@ export function ShelfProvider({ children }: { children: ReactNode }) {
       const checked = checkEdit(patch);
       if ("error" in checked) return checked.error;
       const key = editKey(book);
-      const rest = editsRef.current.filter((e) => e.key !== key);
+      const copy = book.copy ?? 1;
+      const rest = editsRef.current.filter((e) => !(e.key === key && e.copy === copy));
       const rawTitle = book.origTitle ?? book.title;
       const rawAuthor = book.origAuthor ?? book.author;
       const rawGenre = book.origGenre ?? book.genre;
       // Same text the shelf reported: nothing to remember.
       const unchanged = checked.title === rawTitle && checked.author === rawAuthor && checked.genre === rawGenre;
-      saveEdits(unchanged ? rest : [...rest, { key, ...checked }]);
+      saveEdits(unchanged ? rest : [...rest, { key, copy, ...checked }]);
       return null;
     },
     [saveEdits],
@@ -247,7 +252,8 @@ export function ShelfProvider({ children }: { children: ReactNode }) {
   const resetBook = useCallback(
     (book: Book) => {
       const key = editKey(book);
-      saveEdits(editsRef.current.filter((e) => e.key !== key));
+      const copy = book.copy ?? 1;
+      saveEdits(editsRef.current.filter((e) => !(e.key === key && e.copy === copy)));
     },
     [saveEdits],
   );

@@ -14,11 +14,16 @@ export type Book = {
   origAuthor?: string;
   origGenre?: string;
   edited?: boolean;
+  // Which copy this is when several books share a title: 1 for the first from the left, 2 for the next...
+  // Set by the app (not the shelf), so each copy can be edited on its own.
+  copy?: number;
 };
 
-// A user edit of one book, stored in this browser. `key` is the title as the shelf reported it.
-// `genre` is missing in edits saved before genres could be edited; that means "keep the shelf's genre".
-export type BookEdit = { key: string; title: string; author: string; genre?: string };
+// A user edit of one book, stored in this browser. `key` is the title as the shelf reported it and `copy`
+// says which book with that title (see Book.copy). `genre` is missing in edits saved before genres could be
+// edited ("keep the shelf's genre"), and `copy` is missing in edits saved before copies were told apart
+// ("every book with this title"); those are converted when the app loads.
+export type BookEdit = { key: string; copy?: number; title: string; author: string; genre?: string };
 
 export type LogEntry = { id: number; t: number };
 

@@ -77,19 +77,42 @@ export const GENRES = [
   "อาหารไทย", "อาหารและเครื่องดื่ม", "ท่องเที่ยว", "ศิลปะและการออกแบบ", "เรื่องสั้น", "กวีนิพนธ์", "การ์ตูนและนิยายภาพ",
 ];
 
-// Edits are looked up by the title the shelf reported, never by the edited title.
+// Several copies of one title can stand on the shelf, and each must be editable on its own. So an edit is
+// identified by the title the shelf reported (never the edited title) AND the copy number: the 1st, 2nd...
+// book with that title, counting along the shelf from the left.
 export const editKey = (b: Book) => b.origTitle ?? b.title;
 
-// Lay the user's edits over the books the shelf reported. A rescan replaces the raw books;
-// a book that comes back with the same title keeps its edit.
+const idOf = (copy: number | undefined, key: string) => `${copy}\u0000${key}`;
+
+function copyNumbers(books: Book[]): Map<Book, number> {
+  const seen = new Map<string, number>();
+  const copy = new Map<Book, number>();
+  [...books]
+    .sort((a, b) => a.slot - b.slot || a.id - b.id)
+    .forEach((b) => {
+      const n = (seen.get(b.title) ?? 0) + 1;
+      seen.set(b.title, n);
+      copy.set(b, n);
+    });
+  return copy;
+}
+
+// Lay the user's edits over the books the shelf reported (pass the raw books, not edited ones). Every
+// returned book carries its `copy` number, so the edit form knows which one it is editing. A rescan replaces
+// the raw books; a book that comes back with the same title and copy number keeps its edit.
 export function applyEdits(books: Book[], edits: BookEdit[]): Book[] {
-  if (!edits.length) return books;
-  const byKey = new Map(edits.map((e) => [e.key, e]));
+  const copies = copyNumbers(books);
+  const byId = new Map<string, BookEdit>();
+  edits.forEach((e) => {
+    if (e.copy !== undefined) byId.set(idOf(e.copy, e.key), e);
+  });
   return books.map((b) => {
-    const e = byKey.get(b.title);
-    if (!e) return b;
+    const copy = copies.get(b) ?? 1;
+    const e = byId.get(idOf(copy, b.title));
+    if (!e) return { ...b, copy };
     return {
       ...b,
+      copy,
       title: e.title,
       author: e.author,
       genre: e.genre ?? b.genre,
@@ -103,25 +126,47 @@ export function applyEdits(books: Book[], edits: BookEdit[]): Book[] {
 
 // Remove the edit-only fields (used when exporting, so the file holds the text the user sees).
 export function stripEditMeta(b: Book): Book {
-  const { origTitle, origAuthor, origGenre, edited, ...rest } = b;
-  void origTitle; void origAuthor; void origGenre; void edited;
+  const { origTitle, origAuthor, origGenre, edited, copy, ...rest } = b;
+  void origTitle; void origAuthor; void origGenre; void edited; void copy;
   return rest;
 }
 
-// Read edits back from storage: keep only well-formed rows, one per key.
+// Edits saved before copies were told apart have no `copy` and meant "every book with this title".
+// Turn each one into an edit per copy now on the shelf (or just copy 1 when that title is not on the shelf).
+export function expandLegacyEdits(books: Book[], edits: BookEdit[]): BookEdit[] {
+  if (!edits.some((e) => e.copy === undefined)) return edits;
+  const copiesOnShelf = new Map<string, number>();
+  copyNumbers(books).forEach((n, b) => copiesOnShelf.set(b.title, Math.max(copiesOnShelf.get(b.title) ?? 0, n)));
+  const out = edits.filter((e) => e.copy !== undefined);
+  const taken = new Set(out.map((e) => idOf(e.copy, e.key)));
+  edits
+    .filter((e) => e.copy === undefined)
+    .forEach((e) => {
+      for (let n = 1; n <= Math.max(copiesOnShelf.get(e.key) ?? 1, 1); n++) {
+        if (taken.has(idOf(n, e.key))) continue;
+        taken.add(idOf(n, e.key));
+        out.push({ ...e, copy: n });
+      }
+    });
+  return out;
+}
+
+// Read edits back from storage: keep only well-formed rows, one per key and copy.
 export function normalizeEdits(v: unknown): BookEdit[] {
   if (!Array.isArray(v)) return [];
   const seen = new Set<string>();
   const out: BookEdit[] = [];
   v.forEach((r) => {
     if (!r || typeof r !== "object") return;
-    const { key, title, author, genre } = r as Record<string, unknown>;
+    const { key, copy, title, author, genre } = r as Record<string, unknown>;
     if (typeof key !== "string" || typeof title !== "string" || typeof author !== "string") return;
-    if (!key || !title.trim() || seen.has(key)) return;
-    seen.add(key);
+    const c = typeof copy === "number" && Number.isInteger(copy) && copy >= 1 ? copy : undefined; // missing = old format
+    if (!key || !title.trim() || seen.has(idOf(c, key))) return;
+    seen.add(idOf(c, key));
     const g = typeof genre === "string" ? genre.trim().slice(0, GENRE_MAX) : "";
     out.push({
       key,
+      ...(c !== undefined ? { copy: c } : {}),
       title: title.trim().slice(0, TITLE_MAX),
       author: author.trim().slice(0, AUTHOR_MAX) || DEFAULT_AUTHOR,
       ...(g ? { genre: g } : {}),
