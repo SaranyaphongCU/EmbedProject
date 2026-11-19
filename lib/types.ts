@@ -6,6 +6,8 @@ export type Book = {
   type: string; // what kind of book
   genre: string; // what genre
   cover: string; // optional image URL; empty means draw a cover
+  x?: number; // พิกัด X จาก Gemini (0-1000)
+  y?: number; // พิกัด Y จาก Gemini (0-1000)
 };
 
 export type LogEntry = { id: number; t: number };

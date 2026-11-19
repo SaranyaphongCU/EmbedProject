@@ -31,7 +31,7 @@ const K_BOOKS = "ms-books-v1";
 const K_DEMO = "ms-demo-v1";
 
 const SORTS: SortBy[] = ["title", "slot", "category"];
-const DEFAULT_SETTINGS: Settings = { mode: "test", apiBase: "" };
+const DEFAULT_SETTINGS: Settings = { mode: "real", apiBase: "https://script.google.com/macros/s/AKfycbz5dd1qZpjE1RltWDFGrb1LCidmbO7SfuWGSKwlIEIFM0UwtfSvlF5nRmHgx0o424yC/exec" };
 
 type ShelfState = {
   ready: boolean; // false until localStorage has been read in the browser
