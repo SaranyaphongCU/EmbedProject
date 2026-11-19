@@ -1,5 +1,4 @@
-import { DEMO_PICKS } from "./data";
-import type { Book, LogEntry, SortBy } from "./types";
+import type { Book, BookEdit, LogEntry, SortBy } from "./types";
 
 // Thai-aware string comparison
 export const cmp = (a: string, b: string) => String(a).localeCompare(String(b), "th");
@@ -14,6 +13,10 @@ const COVER: Record<string, string> = {
   "ตำราอาหาร": "#6b7d3a",
 };
 export const coverColor = (b: Pick<Book, "type">) => COVER[b.type] || "#7b5232";
+
+// A coordinate is kept only when it is a real number (empty, null or text becomes "no coordinate").
+const coord = (v: unknown): number | undefined =>
+  v === null || v === undefined || v === "" || !Number.isFinite(Number(v)) ? undefined : Number(v);
 
 // Accepts an array of books; drops rows without a title and fills missing fields.
 // Returns [] if nothing is usable.
@@ -34,6 +37,8 @@ export function normalizeBooks(arr: unknown): Book[] {
     const cover = typeof row.cover === "string" && /^(https?:|data:image\/)/.test(row.cover) ? row.cover : "";
 
     out.push({
+      x: coord(row.x), // position on the shelf photo (0-1000); the shelf needs it to reach the book
+      y: coord(row.y),
       id,
       slot: Number.isFinite(slot) && slot > 0 ? slot : i + 1,
       title,
@@ -55,21 +60,96 @@ export function normalizeBooks(arr: unknown): Book[] {
   });
 }
 
+// ---------- user edits (title / author) ----------
+export const TITLE_MAX = 120;
+export const AUTHOR_MAX = 80;
+export const DEFAULT_AUTHOR = "ไม่ระบุผู้แต่ง";
+export const GENRE_MAX = 40;
+export const DEFAULT_GENRE = "ทั่วไป";
+
+// Genres offered in the edit form. Genres already on the shelf are added to this list when the form
+// opens, and "other" lets the user type one that is not here.
+export const GENRES = [
+  "ทั่วไป", "แฟนตาซี", "สืบสวน", "ลึกลับ", "สยองขวัญ", "ผจญภัย", "โรมานซ์", "ตลก", "ไซไฟ",
+  "ประวัติศาสตร์", "สังคมการเมือง", "จิตวิทยา", "ครอบครัว", "ชีวประวัติ", "ศาสนาและปรัชญา",
+  "การทำงาน", "ธุรกิจ", "การเงิน", "การศึกษา", "สุขภาพ",
+  "ดาราศาสตร์", "ฟิสิกส์", "ชีววิทยา", "คอมพิวเตอร์และเทคโนโลยี",
+  "อาหารไทย", "อาหารและเครื่องดื่ม", "ท่องเที่ยว", "ศิลปะและการออกแบบ", "เรื่องสั้น", "กวีนิพนธ์", "การ์ตูนและนิยายภาพ",
+];
+
+// Edits are looked up by the title the shelf reported, never by the edited title.
+export const editKey = (b: Book) => b.origTitle ?? b.title;
+
+// Lay the user's edits over the books the shelf reported. A rescan replaces the raw books;
+// a book that comes back with the same title keeps its edit.
+export function applyEdits(books: Book[], edits: BookEdit[]): Book[] {
+  if (!edits.length) return books;
+  const byKey = new Map(edits.map((e) => [e.key, e]));
+  return books.map((b) => {
+    const e = byKey.get(b.title);
+    if (!e) return b;
+    return {
+      ...b,
+      title: e.title,
+      author: e.author,
+      genre: e.genre ?? b.genre,
+      origTitle: b.title,
+      origAuthor: b.author,
+      origGenre: b.genre,
+      edited: true,
+    };
+  });
+}
+
+// Remove the edit-only fields (used when exporting, so the file holds the text the user sees).
+export function stripEditMeta(b: Book): Book {
+  const { origTitle, origAuthor, origGenre, edited, ...rest } = b;
+  void origTitle; void origAuthor; void origGenre; void edited;
+  return rest;
+}
+
+// Read edits back from storage: keep only well-formed rows, one per key.
+export function normalizeEdits(v: unknown): BookEdit[] {
+  if (!Array.isArray(v)) return [];
+  const seen = new Set<string>();
+  const out: BookEdit[] = [];
+  v.forEach((r) => {
+    if (!r || typeof r !== "object") return;
+    const { key, title, author, genre } = r as Record<string, unknown>;
+    if (typeof key !== "string" || typeof title !== "string" || typeof author !== "string") return;
+    if (!key || !title.trim() || seen.has(key)) return;
+    seen.add(key);
+    const g = typeof genre === "string" ? genre.trim().slice(0, GENRE_MAX) : "";
+    out.push({
+      key,
+      title: title.trim().slice(0, TITLE_MAX),
+      author: author.trim().slice(0, AUTHOR_MAX) || DEFAULT_AUTHOR,
+      ...(g ? { genre: g } : {}),
+    });
+  });
+  return out;
+}
+
+// Check what the user typed. Returns the cleaned values or a message to show.
+export type EditInput = { title: string; author: string; genre: string };
+
+export function checkEdit(input: EditInput): EditInput | { error: string } {
+  const title = input.title.trim();
+  const author = input.author.trim();
+  const genre = input.genre.trim();
+  if (!title) return { error: "กรุณาใส่ชื่อหนังสือ" };
+  if (title.length > TITLE_MAX) return { error: `ชื่อหนังสือยาวเกิน ${TITLE_MAX} ตัวอักษร` };
+  if (author.length > AUTHOR_MAX) return { error: `ชื่อผู้แต่งยาวเกิน ${AUTHOR_MAX} ตัวอักษร` };
+  if (genre.length > GENRE_MAX) return { error: `ชื่อแนวยาวเกิน ${GENRE_MAX} ตัวอักษร` };
+  return { title, author: author || DEFAULT_AUTHOR, genre: genre || DEFAULT_GENRE };
+}
+
 export function sortBooks(books: Book[], by: SortBy): Book[] {
   const a = books.slice();
   if (by === "slot") a.sort((x, y) => x.slot - y.slot);
   else if (by === "category") a.sort((x, y) => cmp(x.type, y.type) || cmp(x.genre, y.genre) || cmp(x.title, y.title));
   else a.sort((x, y) => cmp(x.title, y.title));
   return a;
-}
-
-// First run: seed the pick log from the sample numbers
-export function buildDemoLog(): LogEntry[] {
-  const log: LogEntry[] = [];
-  Object.keys(DEMO_PICKS).forEach((id) => {
-    for (let i = 0; i < DEMO_PICKS[+id]; i++) log.push({ id: +id, t: 0 });
-  });
-  return log;
 }
 
 // Pick counts per book id, ignoring log rows for books that no longer exist

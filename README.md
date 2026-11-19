@@ -30,7 +30,6 @@ The build downloads the Sarabun font from Google Fonts, so the build machine nee
 | `components/ShelfProvider.tsx` | State: books, pick log, settings, busy lock, import/export, `localStorage` |
 | `components/Shelf.tsx` | Sorting, scan, pick buttons, settings panel |
 | `components/Dashboard.tsx` | Statistics: most picked books, genres read |
-| `lib/data.ts` | Sample books and starting statistics |
 | `lib/books.ts` | Book validation (`normalizeBooks`), sorting, pick counts |
 | `lib/api.ts` | The only code that talks to the shelf (test and real mode) |
 
@@ -38,7 +37,7 @@ The build downloads the Sarabun font from Google Fonts, so the build machine nee
 
 - Shelf page: sort by title (default), left to right (slot), or category. Each book shows cover, title, author, type and genre.
 - **แสกน** button sends a scan command. **เลือกเล่มนี้** sends a pick command; while a job runs, every select button and the scan button are disabled.
-- Dashboard: most picked books, and which genres or book types have been read (click a genre to see its books). Statistics are stored in the browser (`localStorage`). Starting numbers are sample data and can be cleared.
+- Dashboard: most picked books, and which genres or book types have been read (click a genre to see its books). Statistics are stored in the browser (`localStorage`) and can be cleared. The shelf starts empty: press **แสกน** to load the books.
 
 ## Import and export
 
@@ -56,7 +55,7 @@ In **ตั้งค่า**, **ส่งออกข้อมูล** downloads
 Use the **ตั้งค่า** button on the shelf page.
 
 - **Test mode** (default): each command waits 2 seconds and counts as done.
-- **Real mode**: the app sends `POST <API base>/pick` with `{ "id", "slot" }` and `POST <API base>/scan`, then waits until the shelf replies. A 2xx reply means done. A scan reply may include `{ "books": [ ... ] }` in the same shape as `lib/data.ts` to replace the list.
+- **Real mode**: the app sends `POST <API base>/pick` with `{ "id", "slot" }` and `POST <API base>/scan`, then waits until the shelf replies. A 2xx reply means done. A scan reply may include `{ "books": [ ... ] }` in the same shape as the `Book` type in `lib/types.ts` to replace the list.
 
 ### Real mode on a deployed (https) site
 

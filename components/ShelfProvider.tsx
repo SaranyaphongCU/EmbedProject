@@ -1,10 +1,9 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { shelfApi } from "@/lib/api";
-import { buildDemoLog, normalizeBooks } from "@/lib/books";
-import { SAMPLE_BOOKS } from "@/lib/data";
-import type { Book, Busy, LogEntry, Settings, SortBy, Status } from "@/lib/types";
+import { applyEdits, checkEdit, editKey, normalizeBooks, normalizeEdits, stripEditMeta } from "@/lib/books";
+import type { Book, BookEdit, Busy, LogEntry, Settings, SortBy, Status } from "@/lib/types";
 
 // ---------- storage (every access guarded: it can throw or come back empty) ----------
 const LS = {
@@ -29,6 +28,7 @@ const K_SET = "ms-settings-v2";
 const K_SORT = "ms-sort-v1";
 const K_BOOKS = "ms-books-v1";
 const K_DEMO = "ms-demo-v1";
+const K_EDITS = "ms-edits-v1";
 
 const SORTS: SortBy[] = ["title", "slot", "category"];
 const DEFAULT_SETTINGS: Settings = { mode: "real", apiBase: "https://script.google.com/macros/s/AKfycbz5dd1qZpjE1RltWDFGrb1LCidmbO7SfuWGSKwlIEIFM0UwtfSvlF5nRmHgx0o424yC/exec" };
@@ -39,7 +39,6 @@ type ShelfState = {
   log: LogEntry[];
   settings: Settings;
   sortBy: SortBy;
-  demo: boolean;
   busy: Busy;
   status: Status;
   setSortBy: (s: SortBy) => void;
@@ -48,6 +47,8 @@ type ShelfState = {
   exportData: () => void;
   importData: (file: File) => void;
   clearStats: () => void;
+  editBook: (book: Book, patch: { title: string; author: string; genre: string }) => string | null; // error message, or null when saved
+  resetBook: (book: Book) => void;
 };
 
 const Ctx = createContext<ShelfState | null>(null);
@@ -60,20 +61,22 @@ export function useShelf(): ShelfState {
 
 export function ShelfProvider({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(false);
-  const [books, setBooks] = useState<Book[]>(SAMPLE_BOOKS);
+  const [rawBooks, setBooks] = useState<Book[]>([]); // as the shelf reported them (empty until the first scan)
+  const [edits, setEdits] = useState<BookEdit[]>([]); // the user's title/author edits, kept in this browser
   const [log, setLog] = useState<LogEntry[]>([]);
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [sortBy, setSortByState] = useState<SortBy>("title"); // default: by title
-  const [demo, setDemo] = useState(false);
   const [busy, setBusy] = useState<Busy>(null);
   const [status, setStatus] = useState<Status>(null);
 
   // Refs hold the latest values for async code, and the lock stops two clicks in the same tick.
-  const booksRef = useRef(books);
+  const booksRef = useRef(rawBooks);
+  const editsRef = useRef(edits);
   const logRef = useRef(log);
   const settingsRef = useRef(settings);
   const busyRef = useRef<Busy>(null);
-  booksRef.current = books;
+  booksRef.current = rawBooks;
+  editsRef.current = edits;
   logRef.current = log;
   settingsRef.current = settings;
 
@@ -81,6 +84,7 @@ export function ShelfProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const savedBooks = normalizeBooks(LS.get<unknown>(K_BOOKS, null));
     if (savedBooks.length) setBooks(savedBooks);
+    setEdits(normalizeEdits(LS.get<unknown>(K_EDITS, null)));
 
     const savedSettings = LS.get<Partial<Settings>>(K_SET, {});
     setSettings({
@@ -92,16 +96,15 @@ export function ShelfProvider({ children }: { children: ReactNode }) {
     if ((SORTS as string[]).includes(savedSort)) setSortByState(savedSort as SortBy);
 
     const savedLog = LS.get<unknown>(K_LOG, null);
-    if (Array.isArray(savedLog)) {
-      setLog(savedLog as LogEntry[]);
-      setDemo(LS.get<boolean>(K_DEMO, false));
-    } else {
-      const seeded = buildDemoLog(); // first run: seed example numbers
-      setLog(seeded);
-      setDemo(true);
-      LS.set(K_LOG, seeded);
-      LS.set(K_DEMO, true);
+    let nextLog: LogEntry[] = Array.isArray(savedLog) ? (savedLog as LogEntry[]) : [];
+    // Older versions filled the log with sample pick counts (marked t = 0) and set this flag.
+    // Remove those, and keep any real picks made since.
+    if (LS.get<boolean>(K_DEMO, false)) {
+      nextLog = nextLog.filter((e) => e && e.t !== 0);
+      LS.set(K_LOG, nextLog);
+      LS.set(K_DEMO, false);
     }
+    setLog(nextLog);
     setReady(true);
   }, []);
 
@@ -129,7 +132,8 @@ export function ShelfProvider({ children }: { children: ReactNode }) {
     });
 
     const api = shelfApi(settingsRef.current);
-    const request = kind === "scan" ? api.scan() : api.pick(book!);
+    // The shelf looks a book up by the title it reported, so send that, not the user's edited text.
+    const request = kind === "scan" ? api.scan() : api.pick(book!.origTitle !== undefined ? { ...book!, title: book!.origTitle } : book!);
     request
       .then((res) => {
         if (kind === "pick") {
@@ -164,7 +168,7 @@ export function ShelfProvider({ children }: { children: ReactNode }) {
       app: "MagicShelf",
       version: 1,
       exportedAt: new Date().toISOString(),
-      books: booksRef.current,
+      books: applyEdits(booksRef.current, editsRef.current).map(stripEditMeta), // the text the user sees
       log: logRef.current,
     };
     const url = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" }));
@@ -188,6 +192,9 @@ export function ShelfProvider({ children }: { children: ReactNode }) {
         booksRef.current = list;
         setBooks(list);
         LS.set(K_BOOKS, list);
+        editsRef.current = []; // an imported file is the new truth, so old edits no longer apply
+        setEdits([]);
+        LS.set(K_EDITS, []);
         if (d && Array.isArray(d.log)) {
           const ids = new Set(list.map((b) => b.id));
           const nextLog: LogEntry[] = (d.log as { id?: unknown; t?: unknown }[])
@@ -197,7 +204,6 @@ export function ShelfProvider({ children }: { children: ReactNode }) {
           setLog(nextLog);
           LS.set(K_LOG, nextLog);
         }
-        setDemo(false);
         LS.set(K_DEMO, false);
         setStatus({ text: `นำเข้าข้อมูลแล้ว: หนังสือ ${list.length} เล่ม` });
       } catch (e) {
@@ -211,14 +217,46 @@ export function ShelfProvider({ children }: { children: ReactNode }) {
   const clearStats = useCallback(() => {
     logRef.current = [];
     setLog([]);
-    setDemo(false);
     LS.set(K_LOG, []);
     LS.set(K_DEMO, false);
   }, []);
 
+  const saveEdits = useCallback((next: BookEdit[]) => {
+    editsRef.current = next;
+    setEdits(next);
+    LS.set(K_EDITS, next);
+  }, []);
+
+  const editBook = useCallback(
+    (book: Book, patch: { title: string; author: string; genre: string }): string | null => {
+      const checked = checkEdit(patch);
+      if ("error" in checked) return checked.error;
+      const key = editKey(book);
+      const rest = editsRef.current.filter((e) => e.key !== key);
+      const rawTitle = book.origTitle ?? book.title;
+      const rawAuthor = book.origAuthor ?? book.author;
+      const rawGenre = book.origGenre ?? book.genre;
+      // Same text the shelf reported: nothing to remember.
+      const unchanged = checked.title === rawTitle && checked.author === rawAuthor && checked.genre === rawGenre;
+      saveEdits(unchanged ? rest : [...rest, { key, ...checked }]);
+      return null;
+    },
+    [saveEdits],
+  );
+
+  const resetBook = useCallback(
+    (book: Book) => {
+      const key = editKey(book);
+      saveEdits(editsRef.current.filter((e) => e.key !== key));
+    },
+    [saveEdits],
+  );
+
+  const books = useMemo(() => applyEdits(rawBooks, edits), [rawBooks, edits]);
+
   return (
     <Ctx.Provider
-      value={{ ready, books, log, settings, sortBy, demo, busy, status, setSortBy, updateSettings, run, exportData, importData, clearStats }}
+      value={{ ready, books, log, settings, sortBy, busy, status, setSortBy, updateSettings, run, exportData, importData, clearStats, editBook, resetBook }}
     >
       {children}
     </Ctx.Provider>

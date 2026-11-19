@@ -16,7 +16,7 @@ function Card({ label, value, sub }: { label: string; value: string; sub?: strin
 }
 
 export function Dashboard() {
-  const { ready, books, log, demo, clearStats } = useShelf();
+  const { ready, books, log, clearStats } = useShelf();
   const [tab, setTab] = useState<"books" | "genres">("books");
   const [groupBy, setGroupBy] = useState<"genre" | "type">("genre");
   const [picked, setPicked] = useState<string | null>(null);
@@ -132,8 +132,7 @@ export function Dashboard() {
       )}
 
       <p className="foot">
-        {demo && <span>ตัวเลขเริ่มต้นเป็นข้อมูลตัวอย่าง</span>}
-        <button className="link" onClick={clearStats}>{demo ? "ล้างข้อมูลตัวอย่าง" : "ล้างสถิติทั้งหมด"}</button>
+        <button className="link" onClick={clearStats}>ล้างสถิติทั้งหมด</button>
       </p>
     </section>
   );

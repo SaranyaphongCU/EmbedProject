@@ -1,8 +1,9 @@
 "use client";
 
 import { Fragment, useState } from "react";
-import { coverColor, sortBooks } from "@/lib/books";
+import { coverColor, editKey, sortBooks } from "@/lib/books";
 import type { Book, SortBy } from "@/lib/types";
+import { EditBookDialog } from "./EditBookDialog";
 import { useShelf } from "./ShelfProvider";
 
 const SORT_LABELS: [SortBy, string][] = [
@@ -31,6 +32,7 @@ function Cover({ book }: { book: Book }) {
 export function Shelf() {
   const { ready, books, settings, sortBy, busy, status, setSortBy, updateSettings, run } = useShelf();
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [editing, setEditing] = useState<Book | null>(null);
 
   const list = ready ? sortBooks(books, sortBy) : [];
   const typeCounts: Record<string, number> = {};
@@ -108,6 +110,18 @@ export function Shelf() {
                 <div className="cover-wrap">
                   <span className="slot" title="ตำแหน่งบนชั้นจากซ้าย">ช่อง {b.slot}</span>
                   <Cover book={b} />
+                  <button
+                    type="button"
+                    className={"edit-btn" + (b.edited ? " on" : "")}
+                    aria-label={`แก้ไขชื่อและผู้แต่งของ ${b.title}`}
+                    title={b.edited ? "แก้ไขแล้ว (กดเพื่อแก้ไขหรือคืนค่าเดิม)" : "แก้ไขชื่อและผู้แต่ง"}
+                    onClick={() => setEditing(b)}
+                  >
+                    <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+                      <path d="M4 20h4L19 9l-4-4L4 16v4z" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+                      <path d="M13.5 6.5l4 4" stroke="currentColor" strokeWidth="2" />
+                    </svg>
+                  </button>
                 </div>
                 <div className="info">
                   <div className="t clamp2" title={b.title}>{b.title}</div>
@@ -132,6 +146,8 @@ export function Shelf() {
           );
         })}
       </div>
+
+      {editing && <EditBookDialog key={editKey(editing)} book={editing} onClose={() => setEditing(null)} />}
     </section>
   );
 }

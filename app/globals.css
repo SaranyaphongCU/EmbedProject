@@ -184,3 +184,19 @@ main { max-width: 1100px; margin: 0 auto; padding: 22px max(16px, env(safe-area-
   .gbars li { grid-template-columns: minmax(6ch, 10ch) minmax(0, 1fr) 3ch; }
 }
 @media (prefers-reduced-motion: reduce) { .spin { animation-duration: 3s; } }
+
+/* ---------- edit title / author ---------- */
+.edit-btn { position: absolute; top: -8px; right: 4px; z-index: 2; width: 34px; height: 34px; display: grid; place-items: center; padding: 0; background: var(--card); color: var(--wood-dark); border: 2px solid var(--brass); border-radius: 50%; }
+.edit-btn::after { content: ""; position: absolute; inset: -5px; } /* larger touch target than the visible circle */
+.edit-btn:hover { background: #f4e3bd; }
+.edit-btn.on { background: var(--brass); color: #fff8ea; }
+.edit-dialog { border: 3px solid var(--wood); border-radius: 12px; background: var(--card); color: var(--ink); padding: 0; width: min(440px, calc(100vw - 32px)); box-shadow: 0 6px 0 var(--wood-light); }
+.edit-dialog::backdrop { background: rgb(60 35 15 / .45); }
+.edit-form { display: grid; gap: 12px; padding: 18px 20px; }
+.edit-form h2 { font-size: 20px; }
+.edit-form label { display: grid; gap: 4px; font-weight: 600; }
+.edit-form input, .edit-form select { font: inherit; font-weight: 400; padding: 8px 10px; min-height: 44px; border: 2px solid var(--line); border-radius: 8px; background: #fff; color: var(--ink); min-width: 0; }
+.edit-form input:focus-visible, .edit-form select:focus-visible { border-color: var(--brass); }
+.edit-form .hint { color: var(--muted); font-size: 14px; margin: 0; overflow-wrap: anywhere; }
+.edit-error { color: var(--danger); margin: 0; font-weight: 600; }
+.edit-actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
